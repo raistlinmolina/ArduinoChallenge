@@ -22,6 +22,9 @@ const int usonicSensorPinOut = 9; // Pin to trigger the usound pulse
 const int usonicSensorPinIn = 8; // Pin to read the usound rebound time
 const int pirSensorPin = 7 ;
 const int tiltSensorPin = 10 ;
+const int soundSensorAnalogPin = A0 ;
+const int soundSensorDigitalPin = 12 ;
+const int soundThreshold = 200;
 
 
 const int usonicSensorDelay = 5; // Delay to let the sensor stabilize
@@ -36,6 +39,32 @@ int tiltPreviousStatus = LOW;
 int movementDelay = 2000;
 
 SoftwareSerial WIFI1(wifiRxPin, wifiTxPin); // RX | TX (Tx | Rx in the ESP respectively)
+
+
+void soundSensorSetup(){
+  pinMode (soundSensorAnalogPin , INPUT);
+  pinMode (soundSensorDigitalPin , INPUT);
+}
+
+//Sound detection using the digital pin
+//Do not use with bad micros
+boolean soundDetectedD(){
+  if (digitalRead( soundSensorDigitalPin))
+          return true;
+      else
+          return false;
+}
+
+int readSound(int pin){
+  int soundVol = analogRead(pin);
+  Serial.print("Volume: ");
+  Serial.println(soundVol);
+  return soundVol;
+}
+
+boolean soundDetectedA(){
+  if (readSound(soundSensorAnalogPin)>soundThreshold) return true; else return false;
+}
 
 
 void uSoundSensorSetup(){
@@ -131,7 +160,7 @@ void setupWifi() {
   {
     "AT+CWMODE=1",
     "AT+CWQAP",
-    "AT+CWJAP=\"Valhalla\",\"xxxxx\"",
+    "AT+CWJAP=\"Valhalla\",\"xxxxxxx\"",
     "AT+CIFSR" ,
     //"AT+CIPMUX=1",
     "END"
@@ -161,12 +190,12 @@ String gatherData(){
   String parked;
   String presence;
   String tilt;
-  
+  String sound;
   
   if (isCarParked()) parked="YES"; else parked="NO";
   if (presenceDetected()) presence="YES"; else presence="NO";
   if (hasBeenMoved()) tilt="YES"; else tilt="NO";
-  String sound = "NO";
+  if (soundDetectedA()) sound="YES"; else sound = "NO";
   
   data = "parked=" + parked + "&presence=" + presence + "&sound=" + sound + "&tilt=" + tilt;
 
@@ -225,6 +254,7 @@ void httppost (String data)
 void setup()
 {
   pinMode( ledPin , OUTPUT) ;
+  soundSensorSetup();
   uSoundSensorSetup();
   presenceSensorSetup();
   tiltSensorSetup();

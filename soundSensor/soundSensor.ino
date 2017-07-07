@@ -1,12 +1,9 @@
 
-// Presence sensor constants.
+
 const int ledPin = 6 ;
 const int soundSensorAnalogPin = A0 ;
 const int soundSensorDigitalPin = 12 ;
 const int soundThreshold = 200;
-/* The PIR sensor can be read in a digital way, it gives a HIGH read when it detects presence
- *  It can be adjusted in sensitivity and delay with the two potentiometers included in the board
- */
 
 void soundSensorSetup(){
   Serial.begin(9600);
