@@ -25,13 +25,13 @@ is double the time to travel the distance*/
 const long carParkedThreshold = 100; //If we read less than this cm we assume there is a car parked under.
 const int timesToRead = 3; // Times to read the distance to determine it.
 
-
+const int pirSensorPin = 7 ;
 
 void uSoundSensorSetup(){
   Serial.begin(9600);
   pinMode(usonicSensorPinOut, OUTPUT); 
   pinMode(usonicSensorPinIn, INPUT);
-  pinMode( ledPin , OUTPUT) ; 
+   
 }
 
 long readDistance (int times){
@@ -68,6 +68,17 @@ boolean isCarParked(){
   if (readDistance(timesToRead) < carParkedThreshold) return true; else return false;
 }
 
+void presenceSensorSetup(){
+  pinMode (pirSensorPin , INPUT);
+}
+
+boolean presenceDetected(){
+  if (digitalRead(pirSensorPin))
+          return true;
+      else
+          return false;
+}
+
 String getLineWIFI()
 {
   String S = "";
@@ -98,7 +109,7 @@ void setupWifi() {
   {
     "AT+CWMODE=1",
     "AT+CWQAP",
-    "AT+CWJAP=\"Valhalla\",\"xxxxxxxxxxxxxxxxxxxxx\"",
+    "AT+CWJAP=\"Valhalla\",\"xxxxxxx\"",
     "AT+CIFSR" ,
     //"AT+CIPMUX=1",
     "END"
@@ -126,9 +137,12 @@ void setupWifi() {
 String gatherData(){
   String data;
   String parked;
-  boolean isParked = isCarParked();
-  if (isParked) parked="YES"; else parked="NO";
-  String presence = "NO";
+  String presence;
+  
+  
+  if (isCarParked()) parked="YES"; else parked="NO";
+  if (presenceDetected()) presence="YES"; else presence="NO";
+  
   String sound = "NO";
   String tilt = "NO";
   
@@ -188,10 +202,13 @@ void httppost (String data)
 
 void setup()
 {
+  pinMode( ledPin , OUTPUT) ;
+  uSoundSensorSetup();
+  presenceSensorSetup();
   Serial.begin(9600);
   WIFI1.begin(9600);
   setupWifi();
-  uSoundSensorSetup();
+
 }
 
 void loop()
