@@ -60,7 +60,7 @@ void setupWifi() {
   {
     "AT+CWMODE=1",
     "AT+CWQAP",
-    "AT+CWJAP=\"Valhalla\",\"xxxxxxxx\"",
+    "AT+CWJAP=\"Valhalla\",\"\"",
     "AT+CIFSR" ,
     //Not opening a server thsi time "AT+CIPMUX=1",
     //Not opening a server thsi time "AT+CIPSERVER=1,80",
@@ -101,9 +101,9 @@ String gatherData(){
 void httppost (String data)
 {
 
-  WIFI1.println("AT+CIPSTART=0,\"TCP\",\"" + server + "\",80");//start a TCP connection.
-  Serial.println("AT+CIPSTART=0,\"TCP\",\"" + server + "\",80");
-  delay(1000);
+  WIFI1.println("AT+CIPSTART=\"TCP\",\"" + server + "\",80");//start a TCP connection.
+  Serial.println("AT+CIPSTART=\"TCP\",\"" + server + "\",80");
+  delay(500);
   if ( WIFI1.find("OK"))
   {
     Serial.println("TCP connection ready");
@@ -117,17 +117,19 @@ void httppost (String data)
     "Content-Type: application/x-www-form-urlencoded\r\n" +
     "\r\n" + data;
   //Serial.println(postRequest);
-  String sendCmd = "AT+CIPSEND=0,";//determine the number of caracters to be sent.
-  delay(500);
+  String sendCmd = "AT+CIPSEND=";//determine the number of caracters to be sent.
+  Serial.print(sendCmd);
+  Serial.println(postRequest.length() );
   WIFI1.print(sendCmd);
   WIFI1.println(postRequest.length() );
-  delay(1000);
+  delay(500);
   if (WIFI1.find(">"))
   {
     Serial.println("Sending.."); WIFI1.print(postRequest);
     if ( WIFI1.find("SEND OK"))
     {
       Serial.println("Packet sent");
+      Serial.println(postRequest);
       while (WIFI1.available())
       {
         String tmpResp = WIFI1.readString();
