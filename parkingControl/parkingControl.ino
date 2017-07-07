@@ -1,38 +1,72 @@
 /*
-
-  https://www.instructables.com/id/Arduino-Esp8266-Post-Data-to-Website/
-
-  GET
-  https://raistlinmolina.000webhostapp.com/espget.php?parked=YES&presence=YES&sound=NO&tilt=NO
-  POST
-  https://raistlinmolina.000webhostapp.com/esppost.php?parked=YES&presence=YES&sound=NO&tilt=NO
-  Results on
-  https://raistlinmolina.000webhostapp.com/sensor.html
 */
 
 
-/*Interesting AT commands
-   AT
-   AT+CWMODE?
-   AT+CWMODE=1  Sets client mode
-   AT+CWLAP   Makes a wifi scan and shows APs
-   AT+CWJAP="ssid","passwd"  connect to ssid AP with password passwd
-   AT+CIFSR  show IP
-   AT+CIPMUX=1    Accept multiple connections
-   AT+CIPSERVER=1,80 Start a web server in port 80
-*/
-
-/*
- * Web to try POST requests
- */
 
 #include <SoftwareSerial.h>
 //Only used inside the post method, move them there when definitive values are set
 const String server = "raistlinmolina.000webhostapp.com";
-//const String server = "192.168.1.1";
 const String uri = "/esppost.php";
+String lastData = "";
 
 SoftwareSerial WIFI1(3, 2); // RX | TX (Tx | Rx in the ESP respectively)
+
+
+long distance;
+long time;
+const int ledPin = 6 ;
+const int usonicSensorPinOut = 9; // Pin to trigger the usound pulse
+const int usonicSensorPinIn = 8; // Pin to read the usound rebound time
+const int usonicSensorDelay = 5; // Delay to let the sensor stabilize
+const int usonicSensorReadDelay = 10; // Delay to allow the sent pulse to complete
+const float formula = 0.017; // Multiplier to pass sensor reading to cm
+/* Sound speed in cm/microsecond divide by two as the time it took the bounce 
+is double the time to travel the distance*/
+const long carParkedThreshold = 100; //If we read less than this cm we assume there is a car parked under.
+const int timesToRead = 3; // Times to read the distance to determine it.
+
+
+
+void uSoundSensorSetup(){
+  Serial.begin(9600);
+  pinMode(usonicSensorPinOut, OUTPUT); 
+  pinMode(usonicSensorPinIn, INPUT);
+  pinMode( ledPin , OUTPUT) ; 
+}
+
+long readDistance (int times){
+  long distance[3];
+  for (int i = 0; i<times; i++){
+    digitalWrite(usonicSensorPinOut,LOW); //We first stabilize the sensor
+    delayMicroseconds(5);
+    digitalWrite(usonicSensorPinOut, HIGH); // We send the usonic pulse
+    delayMicroseconds(10);
+    digitalWrite(usonicSensorPinOut, LOW);
+    
+    /*Function to read the time that has passed since we sent the pulse until we receive the echo*/
+    time=pulseIn(usonicSensorPinIn, HIGH); 
+    
+    distance[i]= int(0.017*time);
+    delay(100); 
+  }
+  
+  long total = 0;
+  for (int i = 0; i<times; i++){
+    total = total + distance[i];
+  }
+  total = total / times;
+  
+  /*Monitorización en centímetros por el monitor serial*/
+  Serial.println("Distance ");
+  Serial.println(total);
+  Serial.println(" cm.");
+  ///delay(1000);
+  return total;
+}
+
+boolean isCarParked(){
+  if (readDistance(timesToRead) < carParkedThreshold) return true; else return false;
+}
 
 String getLineWIFI()
 {
@@ -64,10 +98,9 @@ void setupWifi() {
   {
     "AT+CWMODE=1",
     "AT+CWQAP",
-    "AT+CWJAP=\"Valhalla\",\"xxxxxxxx\"",
+    "AT+CWJAP=\"Valhalla\",\"xxxxxxxxxxxxxxxxxxxxx\"",
     "AT+CIFSR" ,
-    //Not opening a server thsi time "AT+CIPMUX=1",
-    //Not opening a server thsi time "AT+CIPSERVER=1,80",
+    //"AT+CIPMUX=1",
     "END"
   };
 
@@ -92,7 +125,9 @@ void setupWifi() {
 
 String gatherData(){
   String data;
-  String parked = "NOP";
+  String parked;
+  boolean isParked = isCarParked();
+  if (isParked) parked="YES"; else parked="NO";
   String presence = "NO";
   String sound = "NO";
   String tilt = "NO";
@@ -100,45 +135,6 @@ String gatherData(){
   data = "parked=" + parked + "&presence=" + presence + "&sound=" + sound + "&tilt=" + tilt;
 
   return data;
-}
-
-void httpget (String data)
-{
-
-  WIFI1.println("AT+CIPSTART=\"TCP\",\"" + server + "\",80");//start a TCP connection.
-  Serial.println("AT+CIPSTART=\"TCP\",\"" + server + "\",80");
-  delay(500);
-  if ( WIFI1.find("OK"))
-  {
-    Serial.println("TCP connection ready");
-  }
-
-  String getRequest =
-    uri + "?" + data + "\r\n";
-  String sendCmd = "AT+CIPSEND=";//determine the number of caracters to be sent.
-  Serial.print(sendCmd);
-  Serial.println(getRequest.length() );
-  WIFI1.print(sendCmd);
-  WIFI1.println(getRequest.length() );
-  delay(500);
-  if (WIFI1.find(">"))
-  {
-    Serial.println("Sending.."); WIFI1.print(getRequest);
-    if ( WIFI1.find("SEND OK"))
-    {
-      Serial.println("Packet sent");
-      Serial.println(getRequest);
-      while (WIFI1.available())
-      {
-        String tmpResp = WIFI1.readString();
-        Serial.println(tmpResp);
-      }
-      // close the connection
-      WIFI1.println("AT+CIPCLOSE");
-    }
-  }else{
-    Serial.println("No response");
-  }
 }
 
 void httppost (String data)
@@ -190,34 +186,27 @@ void httppost (String data)
   }
 }
 
-/*
- * Not used here, commented out to save memory
-voit atTerminal(){
-  String B = "." ;
-  if (WIFI1.available())
-  { char c = WIFI1.read() ;
-    Serial.print(c);
-  }
-  if (Serial.available()) {
-    char c = Serial.read();
-    WIFI1.print(c);
-  }
-}
-*/
-
 void setup()
 {
   Serial.begin(9600);
   WIFI1.begin(9600);
   setupWifi();
+  uSoundSensorSetup();
 }
 
 void loop()
 {
-  String data = gatherData();
-  httppost(data);
-  delay(60000);
   
+  
+  String data = gatherData();
+  //We will only publish data if something changes
+  Serial.println(data);
+  if (!lastData.equals(data)) {
+    lastData = data;
+    httppost(data);
+  }
+
+  //delay(3000);
 }
 
 
