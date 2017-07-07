@@ -2,7 +2,7 @@
 // Tilt sensor constants.
 const int ledPin = 6 ;
 const int tiltSensorPin = 10 ;
-int previousStatus = LOW;
+int tiltPreviousStatus = LOW;
 int movementDelay = 2000;
 
 /* The PIR sensor can be read in a digital way, it gives a HIGH read when it detects presence
@@ -17,13 +17,14 @@ void tiltSensorSetup(){
 
 boolean hasBeenMoved(int pin){
   int currentStatus = digitalRead(pin);
-  boolean moved = (currentStatus != previousStatus);
-  previousStatus = currentStatus;
+  boolean moved = (currentStatus != tiltPreviousStatus);
+  tiltPreviousStatus = currentStatus;
   return moved;
 }
 
 int announceMovement(){
   int errorCode = 0;
+  Serial.println("Moved");
   digitalWrite( ledPin , HIGH);
   delay(movementDelay);
   digitalWrite( ledPin , LOW);
@@ -38,7 +39,8 @@ void checkMovement(int pin){
 }
 
 void setup()
-   {  
+   {
+    Serial.begin(9600);
     tiltSensorSetup();
    }
 

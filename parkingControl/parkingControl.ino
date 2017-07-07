@@ -9,14 +9,21 @@ const String server = "raistlinmolina.000webhostapp.com";
 const String uri = "/esppost.php";
 String lastData = "";
 
-SoftwareSerial WIFI1(3, 2); // RX | TX (Tx | Rx in the ESP respectively)
 
 
 long distance;
 long time;
+
+//Pin setup
 const int ledPin = 6 ;
+const int wifiRxPin = 3;
+const int wifiTxPin = 2;
 const int usonicSensorPinOut = 9; // Pin to trigger the usound pulse
 const int usonicSensorPinIn = 8; // Pin to read the usound rebound time
+const int pirSensorPin = 7 ;
+const int tiltSensorPin = 10 ;
+
+
 const int usonicSensorDelay = 5; // Delay to let the sensor stabilize
 const int usonicSensorReadDelay = 10; // Delay to allow the sent pulse to complete
 const float formula = 0.017; // Multiplier to pass sensor reading to cm
@@ -25,7 +32,11 @@ is double the time to travel the distance*/
 const long carParkedThreshold = 100; //If we read less than this cm we assume there is a car parked under.
 const int timesToRead = 3; // Times to read the distance to determine it.
 
-const int pirSensorPin = 7 ;
+int tiltPreviousStatus = LOW;
+int movementDelay = 2000;
+
+SoftwareSerial WIFI1(wifiRxPin, wifiTxPin); // RX | TX (Tx | Rx in the ESP respectively)
+
 
 void uSoundSensorSetup(){
   Serial.begin(9600);
@@ -72,6 +83,17 @@ void presenceSensorSetup(){
   pinMode (pirSensorPin , INPUT);
 }
 
+void tiltSensorSetup(){
+  pinMode (tiltSensorPin , INPUT);
+}
+
+boolean hasBeenMoved(){
+  int currentStatus = digitalRead(tiltSensorPin);
+  boolean moved = (currentStatus != tiltPreviousStatus);
+  tiltPreviousStatus = currentStatus;
+  return moved;
+}
+
 boolean presenceDetected(){
   if (digitalRead(pirSensorPin))
           return true;
@@ -109,7 +131,7 @@ void setupWifi() {
   {
     "AT+CWMODE=1",
     "AT+CWQAP",
-    "AT+CWJAP=\"Valhalla\",\"xxxxxxx\"",
+    "AT+CWJAP=\"Valhalla\",\"xxxxx\"",
     "AT+CIFSR" ,
     //"AT+CIPMUX=1",
     "END"
@@ -138,13 +160,13 @@ String gatherData(){
   String data;
   String parked;
   String presence;
+  String tilt;
   
   
   if (isCarParked()) parked="YES"; else parked="NO";
   if (presenceDetected()) presence="YES"; else presence="NO";
-  
+  if (hasBeenMoved()) tilt="YES"; else tilt="NO";
   String sound = "NO";
-  String tilt = "NO";
   
   data = "parked=" + parked + "&presence=" + presence + "&sound=" + sound + "&tilt=" + tilt;
 
@@ -205,6 +227,7 @@ void setup()
   pinMode( ledPin , OUTPUT) ;
   uSoundSensorSetup();
   presenceSensorSetup();
+  tiltSensorSetup();
   Serial.begin(9600);
   WIFI1.begin(9600);
   setupWifi();
