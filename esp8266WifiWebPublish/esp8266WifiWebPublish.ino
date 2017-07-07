@@ -22,11 +22,15 @@
    AT+CIPSERVER=1,80 Start a web server in port 80
 */
 
+/*
+ * Web to try POST requests
+ */
+
 #include <SoftwareSerial.h>
 //Only used inside the post method, move them there when definitive values are set
 const String server = "raistlinmolina.000webhostapp.com";
 //const String server = "192.168.1.1";
-const String uri = "esppost.php";
+const String uri = "/esppost.php";
 
 SoftwareSerial WIFI1(3, 2); // RX | TX (Tx | Rx in the ESP respectively)
 
@@ -88,7 +92,7 @@ void setupWifi() {
 
 String gatherData(){
   String data;
-  String parked = "YES";
+  String parked = "NOP";
   String presence = "NO";
   String sound = "NO";
   String tilt = "NO";
@@ -96,6 +100,45 @@ String gatherData(){
   data = "parked=" + parked + "&presence=" + presence + "&sound=" + sound + "&tilt=" + tilt;
 
   return data;
+}
+
+void httpget (String data)
+{
+
+  WIFI1.println("AT+CIPSTART=\"TCP\",\"" + server + "\",80");//start a TCP connection.
+  Serial.println("AT+CIPSTART=\"TCP\",\"" + server + "\",80");
+  delay(500);
+  if ( WIFI1.find("OK"))
+  {
+    Serial.println("TCP connection ready");
+  }
+
+  String getRequest =
+    uri + "?" + data + "\r\n";
+  String sendCmd = "AT+CIPSEND=";//determine the number of caracters to be sent.
+  Serial.print(sendCmd);
+  Serial.println(getRequest.length() );
+  WIFI1.print(sendCmd);
+  WIFI1.println(getRequest.length() );
+  delay(500);
+  if (WIFI1.find(">"))
+  {
+    Serial.println("Sending.."); WIFI1.print(getRequest);
+    if ( WIFI1.find("SEND OK"))
+    {
+      Serial.println("Packet sent");
+      Serial.println(getRequest);
+      while (WIFI1.available())
+      {
+        String tmpResp = WIFI1.readString();
+        Serial.println(tmpResp);
+      }
+      // close the connection
+      WIFI1.println("AT+CIPCLOSE");
+    }
+  }else{
+    Serial.println("No response");
+  }
 }
 
 void httppost (String data)
@@ -108,14 +151,16 @@ void httppost (String data)
   {
     Serial.println("TCP connection ready");
   }
-
+    
+    
   String postRequest =
-    "POST " + uri + " HTTP/1.0\r\n" +
-    "Host: " + server + "\r\n" +
-    "Accept: *" + "/" + "*\r\n" +
-    "Content-Length: " + (data.length()-1) + "\r\n" +
-    "Content-Type: application/x-www-form-urlencoded\r\n" +
-    "\r\n" + data;
+    "POST " + uri + " HTTP/1.1\r\n" +
+    "Host:" + server + "\r\n" +
+    "Accept:" + "*/" + "*\r\n" +
+    "Content-Length:" + data.length() + "\r\n" +
+    "Content-Type:application/x-www-form-urlencoded\r\n" +
+    "\r\n" +
+    data + "\r\n";
   //Serial.println(postRequest);
   String sendCmd = "AT+CIPSEND=";//determine the number of caracters to be sent.
   Serial.print(sendCmd);
@@ -130,6 +175,7 @@ void httppost (String data)
     {
       Serial.println("Packet sent");
       Serial.println(postRequest);
+      delay(1000);
       while (WIFI1.available())
       {
         String tmpResp = WIFI1.readString();
@@ -137,6 +183,7 @@ void httppost (String data)
       }
       // close the connection
       WIFI1.println("AT+CIPCLOSE");
+      Serial.println("AT+CIPCLOSE");
     }
   }else{
     Serial.println("No response");
